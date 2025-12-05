@@ -1,0 +1,26 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+*.log
+__MACOSX
+.ruff_cache
+*.tar.gz
+.vscode
+cache/
+.rasa
+uv.lock
+hackathon-frontend
+data/
+# Virtual environments
+.venv
+.env 
+credentials.json
+token.json
+token.json.backup
+.streamlit/secrets.toml
+.streamlit/secrets.toml.example
+.streamlit/

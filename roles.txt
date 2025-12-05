@@ -1,0 +1,76 @@
+ 
+AI Engineer
+Job Role:AI Engineer / Machine Learning Engineer / Artificial Intelligence Developer
+Job Description:
+An AI Engineer designs, develops, and deploys artificial intelligence and machine learning solutions to solve complex business problems. They work at the intersection of software engineering, data science, and AI research to build intelligent systems that can learn, adapt, and make decisions.
+Key Responsibilities:
+Design and develop machine learning models and AI algorithms for various applications including natural language processing, computer vision, predictive analytics, and recommendation systems
+Collect, preprocess, and analyze large datasets to train and validate AI models
+Implement and optimize deep learning architectures using frameworks like TensorFlow, PyTorch, or Keras
+Deploy AI models into production environments and ensure scalability and performance
+Collaborate with data scientists, software engineers, and product teams to integrate AI capabilities into products and services
+Monitor model performance, conduct A/B testing, and continuously improve model accuracy
+Stay current with latest AI research, techniques, and best practices
+Document technical specifications, model architectures, and deployment processes
+ 
+ 
+Test Architect
+Job Role:Test Architect / QA Architect / Quality Engineering Architect
+Job Description:
+A Test Architect is responsible for defining the overall testing strategy, framework, and standards across software development projects. They provide technical leadership in quality assurance and ensure that testing processes align with business objectives and technical requirements.
+Key Responsibilities:
+Design and implement comprehensive test strategies, frameworks, and architectures for complex software systems
+Define testing standards, methodologies, and best practices across the organization
+Select and evaluate test automation tools and frameworks suitable for the project needs
+Create test automation frameworks from scratch or enhance existing ones
+Provide technical guidance and mentorship to QA teams and test engineers
+Collaborate with development architects, product managers, and stakeholders to understand requirements and quality goals
+Establish performance, security, and reliability testing approaches
+Analyze test results, identify patterns, and recommend improvements to testing processes
+
+Features added today:
+1. Switched to Open AI API
+2. Enhance JD button to make the JD better 
+3. Add resumes of previously hired person for the role
+4. Send emails successfully with the timings and Gmeet link already made properly
+5. Fill Role internally option
+6. If meeting already scheduled, itll make sure not to schedule meeting again for the same form respnse
+
+
+
+
+  <!-- THEME 6: Bold Cards -->
+  <div id="theme6" class="theme-view min-h-screen bg-gradient-to-br from-cyan-600 via-blue-600 to-purple-700 flex items-center justify-center p-8">
+    <div class="max-w-7xl mx-auto">
+      <div class="bg-white rounded-3xl shadow-2xl p-16 text-center mb-16">
+        <h1 class="text-7xl font-black text-gray-900">Bold Cards</h1>
+        <p class="text-3xl text-gray-600 mt-6">Make a Statement</p>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-10 mb-20">
+        <div class="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-16 text-white text-center transform hover:scale-110 transition">
+          <p class="text-8xl font-black">247</p>
+          <p class="text-2xl mt-6">Total</p>
+        </div>
+        <div class="bg-gradient-to-br from-green-600 to-emerald-700 rounded-3xl p-16 text-white text-center transform hover:scale-110 transition">
+          <p class="text-8xl font-black">43</p>
+          <p class="text-2xl mt-6">Parsed</p>
+        </div>
+        <div class="bg-gradient-to-br from-purple-600 to-pink-700 rounded-3xl p-16 text-white text-center transform hover:scale-110 transition">
+          <p class="text-8xl font-black">18</p>
+          <p class="text-2xl mt-6">Scheduled</p>
+        </div>
+        <div class="bg-gradient-to-br from-orange-600 to-red-700 rounded-3xl p-16 text-white text-center transform hover:scale-110 transition">
+          <p class="text-8xl font-black">12</p>
+          <p class="text-2xl mt-6">Pending</p>
+        </div>
+      </div>
+      <div class="bg-white rounded-3xl shadow-2xl p-24 text-center">
+        <i class="fas fa-cloud-upload-alt text-9xl text-cyan-600 mb-10"></i>
+        <button class="px-24 py-8 bg-gradient-to-r from-cyan-600 to-blue-700 text-white text-3xl font-bold rounded-3xl transition hover:shadow-2xl">Upload Resume</button>
+      </div>
+    </div>
+  </div>
+
+
+  Cann you use such bold colours for our resume app? 
+  and is there any other way you can make the app look better? 

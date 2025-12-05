@@ -1,0 +1,16 @@
+pandas
+PyMuPDF
+spacy
+pytest
+numpy
+requests
+streamlit
+openai
+groq
+python-dotenv
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+google-api-python-client
+openpyxl
+faiss-cpu

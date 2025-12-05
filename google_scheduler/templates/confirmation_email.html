@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Interview Confirmation</title>
+    <style>
+      body {
+        font-family: "Helvetica Neue", Arial, sans-serif;
+        line-height: 1.7;
+        color: #1f2933;
+        background-color: #f8fafc;
+        margin: 0;
+        padding: 0;
+      }
+      .container {
+        max-width: 640px;
+        margin: 0 auto;
+        background: #ffffff;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+      }
+      .header {
+        background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
+        color: #ffffff;
+        padding: 32px;
+        text-align: center;
+      }
+      .header h1 {
+        margin: 0;
+        font-size: 26px;
+      }
+      .content {
+        padding: 32px;
+      }
+      .card {
+        background: #f8fafc;
+        border-radius: 10px;
+        padding: 20px 24px;
+        margin: 24px 0;
+        border-left: 6px solid #0ea5e9;
+      }
+      .button {
+        display: inline-block;
+        background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
+        color: #ffffff;
+        padding: 14px 28px;
+        border-radius: 999px;
+        text-decoration: none;
+        font-weight: 600;
+      }
+      .footer {
+        padding: 24px 32px;
+        background-color: #f1f5f9;
+        font-size: 13px;
+        color: #64748b;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>Interview Confirmed</h1>
+      </div>
+      <div class="content">
+        <p>Hi {{candidate_name}},</p>
+        <p>We're excited to meet you! Here are the details for your interview:</p>
+        <div class="card">
+          <p><strong>Date:</strong> {{interview_date}}</p>
+          <p><strong>Time:</strong> {{interview_time}}</p>
+          <p><strong>Format:</strong> Google Meet</p>
+        </div>
+        <p style="text-align: center; margin: 32px 0">
+          <a class="button" href="{{meet_link}}" target="_blank">Join Google Meet</a>
+        </p>
+        <p>
+          Please join a few minutes early to ensure your audio and video are
+          working. If you have any questions or need to reschedule, reply to this
+          email and we'll be happy to help.
+        </p>
+        <p>See you soon!</p>
+        <p>The Recruiting Team</p>
+      </div>
+      <div class="footer">
+        <p>
+          Need another time? Reply to this email or contact your recruiter.
+          <br />We'll do our best to accommodate your schedule.
+        </p>
+      </div>
+    </div>
+  </body>
+</html>
