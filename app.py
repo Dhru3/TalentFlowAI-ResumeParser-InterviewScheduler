@@ -161,17 +161,28 @@ def get_llm_model() -> str:
 
 
 @lru_cache(maxsize=1)
-def _load_scheduler_pipeline() -> SchedulerPipeline:
-    return SchedulerPipeline.from_env()
+def _load_scheduler_pipeline() -> Optional[SchedulerPipeline]:
+    """Try to load the scheduler pipeline, return None if not configured."""
+    try:
+        return SchedulerPipeline.from_env()
+    except Exception as exc:
+        logger.warning("Scheduler pipeline not available: %s", exc)
+        return None
 
 
 def get_scheduler_pipeline() -> Optional[SchedulerPipeline]:
-    try:
-        return _load_scheduler_pipeline()
-    except Exception as exc:
-        st.error("⚠️ Google scheduler pipeline is not configured correctly. Check your .env values.")
-        logger.exception("Failed to initialize SchedulerPipeline: %s", exc)
-        return None
+    """Get the scheduler pipeline if configured, otherwise return None."""
+    return _load_scheduler_pipeline()
+
+
+def is_google_configured() -> bool:
+    """Check if Google integration is properly configured."""
+    pipeline = get_scheduler_pipeline()
+    if pipeline is None:
+        return False
+    # Check if essential settings are present
+    settings = pipeline.settings
+    return bool(settings.gmail_sender_address and settings.google_sheet_id)
 
 
 def generate_candidate_insight(
@@ -2548,6 +2559,26 @@ def render_ranking_page() -> None:
 
 def render_scheduling_page(config: DashboardConfig) -> None:
     pipeline = get_scheduler_pipeline()
+    
+    # Check if Google integration is configured
+    if not pipeline or not is_google_configured():
+        st.warning("⚠️ **Google Integration Not Configured**")
+        st.info("""
+        The scheduling features require Google OAuth credentials to:
+        - Send emails via Gmail
+        - Create calendar events
+        - Read availability from Google Sheets
+        
+        **For demo purposes:** The resume parsing and ranking features work without Google integration!
+        
+        **To enable scheduling:** Set these environment variables:
+        - `GOOGLE_CREDENTIALS_FILE` - Path to OAuth credentials.json
+        - `GOOGLE_TOKEN_FILE` - Path to token.json
+        - `GMAIL_SENDER_ADDRESS` - Your Gmail address
+        - `GOOGLE_SHEET_ID` - Your Google Sheet ID
+        """)
+        st.markdown("---")
+    
     ranked_map = st.session_state.get("ranked_results", {})
     selected = get_selected_jd()
     

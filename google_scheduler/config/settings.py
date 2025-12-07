@@ -51,20 +51,23 @@ class Settings:
 
 @lru_cache(maxsize=1)
 def load_settings(dotenv_path: str | os.PathLike[str] | None = None) -> Settings:
-    """Load settings from environment variables (and an optional .env file)."""
+    """Load settings from environment variables (and an optional .env file).
+    
+    Now allows partial configuration - missing values will raise errors only
+    when the corresponding feature is actually used.
+    """
     base_dir = Path.cwd()
     load_dotenv(dotenv_path, override=False)
 
-    credentials_file = os.getenv("GOOGLE_CREDENTIALS_FILE")
+    credentials_file = os.getenv("GOOGLE_CREDENTIALS_FILE", "")
     if not credentials_file:
-        raise RuntimeError("GOOGLE_CREDENTIALS_FILE must be set.")
+        raise RuntimeError("Google integration not configured. Set GOOGLE_CREDENTIALS_FILE to enable scheduling features.")
 
     token_file = os.getenv("GOOGLE_TOKEN_FILE", "token.json")
     timezone = os.getenv("GOOGLE_DEFAULT_TIMEZONE", "UTC")
 
-    gmail_sender = os.getenv("GMAIL_SENDER_ADDRESS")
-    if not gmail_sender:
-        raise RuntimeError("GMAIL_SENDER_ADDRESS must be set.")
+    # Gmail sender is now optional - can be provided at runtime
+    gmail_sender = os.getenv("GMAIL_SENDER_ADDRESS", "")
 
     gmail_template = os.getenv("GMAIL_TEMPLATE_PATH", "templates/invitation_email.html")
     gmail_confirmation_template = os.getenv(
@@ -72,9 +75,8 @@ def load_settings(dotenv_path: str | os.PathLike[str] | None = None) -> Settings
     )
     forms_link = os.getenv("GOOGLE_FORM_LINK") or os.getenv("GOOGLE_FORMS_LINK", "")
 
-    sheet_id = os.getenv("GOOGLE_SHEET_ID")
-    if not sheet_id:
-        raise RuntimeError("GOOGLE_SHEET_ID must be set.")
+    # Sheet ID is now optional - can be empty if not using sheets feature
+    sheet_id = os.getenv("GOOGLE_SHEET_ID", "")
 
     sheet_range = os.getenv("GOOGLE_SHEET_RANGE", "Form_Responses_1!A1:G")
     interviewer_email = os.getenv("DEFAULT_INTERVIEWER_EMAIL", gmail_sender)
