@@ -23,7 +23,7 @@ from uuid import uuid4
 import numpy as np
 import pandas as pd
 import streamlit as st
-from openai import AzureOpenAI
+from groq import Groq
 
 from matcher import ResumeMatcher, MAX_MATCH_SCORE
 from parser import ResumeParserLLM
@@ -48,7 +48,7 @@ ITC_LOGO_PATH = Path(__file__).parent / "ITC_Logo.jpg"
 
 
 def get_embedding_model() -> str:
-    return os.getenv("AZURE_OPENAI_EMBEDDING_MODEL", "text-embedding-3-large")
+    return os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
 
 # ---------------------------------------------------------------------------
 # Styling and configuration helpers
@@ -140,21 +140,24 @@ def compute_match_percentage(match_score: Any) -> float:
     return max(0.0, min(value, cap))
 
 
+# ---------------------------------------------------------------------------
+# Groq LLM Client (replaces Azure OpenAI)
+# ---------------------------------------------------------------------------
+
 @lru_cache(maxsize=1)
-def get_azure_llm_client() -> Optional[AzureOpenAI]:
-    """Get Azure OpenAI client for LLM operations (chat completion)."""
-    api_key = os.getenv("AZURE_OPENAI_API_KEY")
-    endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
-    api_version = os.getenv("AZURE_OPENAI_CHAT_API_VERSION", "2024-12-01-preview")
+def get_groq_client() -> Optional[Groq]:
+    """Get Groq client for LLM operations (chat completion)."""
+    api_key = os.getenv("GROQ_API_KEY")
     
-    if not api_key or not endpoint:
+    if not api_key:
         return None
     
-    return AzureOpenAI(
-        api_key=api_key,
-        api_version=api_version,
-        azure_endpoint=endpoint
-    )
+    return Groq(api_key=api_key)
+
+
+def get_llm_model() -> str:
+    """Get the LLM model to use."""
+    return os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 
 @lru_cache(maxsize=1)
@@ -182,11 +185,11 @@ def generate_candidate_insight(
 ) -> str:
     """
     Generate a personalized AI insight explaining why this candidate is a strong fit.
-    Uses Azure OpenAI LLM to create a compelling, human-readable rationale.
+    Uses Groq LLM to create a compelling, human-readable rationale.
     """
-    client = get_azure_llm_client()
+    client = get_groq_client()
     if not client:
-        return "⚠️ AI insights unavailable (Azure OpenAI not configured)"
+        return "⚠️ AI insights unavailable (Groq API not configured)"
     
     try:
         
@@ -230,7 +233,7 @@ Write a brief, constructive 2-3 sentence explanation of WHY this candidate is NO
 Write a brief, compelling 2-3 sentence insight explaining WHY this candidate would be a great fit for this role. Focus on their unique strengths, relevant experience, and potential value-add. Be specific and actionable. Make it sound natural and professional, like advice from a senior recruiter. Do NOT sound like a sales pitch or say things like "excited to have them join your team"."""
 
         response = client.chat.completions.create(
-            model=os.getenv("AZURE_OPENAI_CHAT_MODEL", "gpt-4o-mini"),
+            model=get_llm_model(),
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
             max_tokens=200,
@@ -255,9 +258,9 @@ def enhance_job_description(jd_text: str, role_title: str = "") -> Optional[str]
     Returns:
         Enhanced job description or None if enhancement fails
     """
-    client = get_azure_llm_client()
+    client = get_groq_client()
     if not client:
-        st.error("⚠️ JD enhancement unavailable (Azure OpenAI not configured)")
+        st.error("⚠️ JD enhancement unavailable (Groq API not configured)")
         return None
     
     try:
@@ -279,7 +282,7 @@ Please enhance this job description by:
 Return ONLY the enhanced job description text, no preamble or explanation."""
 
         response = client.chat.completions.create(
-            model=os.getenv("AZURE_OPENAI_CHAT_MODEL", "gpt-4o-mini"),
+            model=get_llm_model(),
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
             max_tokens=1500,
@@ -304,11 +307,11 @@ def predict_candidate_ctc(
 ) -> str:
     """
     Predict the candidate's current CTC (salary range) based on their profile.
-    Uses Azure OpenAI LLM to estimate salary based on skills, experience, and education.
+    Uses Groq LLM to estimate salary based on skills, experience, and education.
     """
-    client = get_azure_llm_client()
+    client = get_groq_client()
     if not client:
-        return "⚠️ CTC prediction unavailable (Azure OpenAI not configured)"
+        return "⚠️ CTC prediction unavailable (Groq API not configured)"
     
     try:
         
@@ -345,7 +348,7 @@ Rationale: [one short sentence]
 Be realistic and data-driven. Don't be overly optimistic or pessimistic."""
 
         response = client.chat.completions.create(
-            model=os.getenv("AZURE_OPENAI_CHAT_MODEL", "gpt-4o-mini"),
+            model=get_llm_model(),
             messages=[{"role": "user", "content": prompt}],
             temperature=0.5,
             max_tokens=150,
@@ -383,9 +386,9 @@ def generate_comprehensive_candidate_insights(
     if cache_key in st.session_state:
         return st.session_state[cache_key]
     
-    client = get_azure_llm_client()
+    client = get_groq_client()
     if not client:
-        return {"error": "Azure OpenAI not configured"}
+        return {"error": "Groq API not configured"}
     
     try:
         skills_text = ", ".join(skills[:20]) if skills else "Not specified"
@@ -468,14 +471,18 @@ IMPORTANT:
 - Strengths/weaknesses should be specific and actionable"""
 
         response = client.chat.completions.create(
-            model=os.getenv("AZURE_OPENAI_CHAT_MODEL", "gpt-4o-mini"),
+            model=get_llm_model(),
             messages=[{"role": "user", "content": prompt}],
             temperature=0.6,
             max_tokens=2000,
-            response_format={"type": "json_object"}
         )
         
         insights_json = response.choices[0].message.content.strip()
+        # Clean up markdown code blocks if present
+        if insights_json.startswith("```"):
+            insights_json = insights_json.split("```")[1]
+            if insights_json.startswith("json"):
+                insights_json = insights_json[4:]
         insights = json.loads(insights_json) if insights_json else {}
         
         # Cache the results
@@ -1581,7 +1588,7 @@ def handle_ranking(selected_jd: Dict[str, str]) -> Optional[pd.DataFrame]:
         matcher = load_resume_matcher()
     except RuntimeError as exc:
         st.error(f"Unable to load embedding model: {exc}")
-        logger.warning("Failed to initialize Azure OpenAI client: %s", exc)
+        logger.warning("Failed to initialize embedding model: %s", exc)
         return None
     
     try:
@@ -1598,7 +1605,7 @@ def handle_ranking(selected_jd: Dict[str, str]) -> Optional[pd.DataFrame]:
         )
     except RuntimeError as exc:
         st.error(f"Unable to compute embeddings: {exc}")
-        logger.warning("Azure OpenAI embedding failed: %s", exc)
+        logger.warning("Embedding computation failed: %s", exc)
         return None
     except Exception as exc:
         st.error(f"Unable to rank candidates right now: {exc}")
@@ -1818,8 +1825,8 @@ def render_config_panel() -> DashboardConfig:
         )
         model_name = get_embedding_model()
         st.info(
-            "Using Azure OpenAI embedding model: "
-            f"`{model_name}`. Override via the AZURE_OPENAI_EMBEDDING_MODEL environment variable."
+            "Using sentence-transformers embedding model: "
+            f"`{model_name}`. Override via the EMBEDDING_MODEL environment variable."
         )
         col1, col2 = st.columns(2)
         with col1:

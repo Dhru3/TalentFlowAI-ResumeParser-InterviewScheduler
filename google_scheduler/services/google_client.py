@@ -64,7 +64,8 @@ class GoogleClientFactory:
                     str(self._settings.google_credentials_file),
                     scopes=scopes,
                 )
-                creds = flow.run_local_server(port=0)
+                # Use port 8080 to match redirect_uri in Google Cloud Console
+                creds = flow.run_local_server(port=8080)
             token_path.write_text(creds.to_json())
 
         # Cache for reuse

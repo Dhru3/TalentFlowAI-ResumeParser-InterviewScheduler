@@ -120,14 +120,16 @@ Go to your GitHub repo in browser and confirm:
 
 ```toml
 # ============================================
-# AZURE OPENAI CONFIGURATION
+# GROQ LLM CONFIGURATION
+# Get your free API key at: https://console.groq.com
 # ============================================
-AZURE_OPENAI_API_KEY = "your-azure-openai-api-key-here"
-AZURE_OPENAI_ENDPOINT = "https://your-resource.openai.azure.com/"
-AZURE_OPENAI_EMBEDDING_MODEL = "text-embedding-3-large"
-AZURE_OPENAI_CHAT_MODEL = "gpt-4o-mini"
-AZURE_OPENAI_API_VERSION = "2024-02-01"
-AZURE_OPENAI_CHAT_API_VERSION = "2024-12-01-preview"
+GROQ_API_KEY = "your-groq-api-key-here"
+GROQ_MODEL = "llama-3.1-70b-versatile"
+
+# ============================================
+# EMBEDDING MODEL (HuggingFace - runs locally, free!)
+# ============================================
+EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 
 # ============================================
 # GOOGLE OAUTH CREDENTIALS (base64 encoded)
@@ -206,11 +208,9 @@ The `settings.py` code already handles this — it resolves paths relative to `P
 - You revoke access in Google Security settings
 - Google expires the refresh token (rare, usually months)
 
-### What if I get "Request timed out" on Azure?
-That's a network issue. Check:
-1. Azure OpenAI endpoint is correct
-2. API key is valid
-3. Your Azure resource has quota available
+### What LLM and embedding models are used?
+- **LLM:** Groq Cloud API with `llama-3.1-70b-versatile` (fast, free tier available)
+- **Embeddings:** HuggingFace `sentence-transformers` with `all-MiniLM-L6-v2` (runs locally, completely free)
 
 ### Can I update the app after deployment?
 Yes! Just push changes to GitHub:

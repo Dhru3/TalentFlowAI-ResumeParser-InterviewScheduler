@@ -1,6 +1,6 @@
 """
 AI-powered Resume Parser (Batch + Cached)
-Uses Azure OpenAI for both structured extraction (LLM) and embeddings.
+Uses Groq for LLM extraction and HuggingFace sentence-transformers for embeddings.
 """
 
 import os
@@ -13,8 +13,16 @@ import time
 from pathlib import Path
 from dataclasses import dataclass, asdict
 from typing import List, Optional
-from openai import AzureOpenAI
+from groq import Groq
 from dotenv import load_dotenv
+
+# Try to import sentence-transformers for embeddings
+try:
+    from sentence_transformers import SentenceTransformer
+    SENTENCE_TRANSFORMER_AVAILABLE = True
+except ImportError:
+    SENTENCE_TRANSFORMER_AVAILABLE = False
+    SentenceTransformer = None
 
 
 # ==============================
@@ -23,17 +31,17 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-AZURE_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
-AZURE_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
-AZURE_EMBED_MODEL = os.getenv("AZURE_OPENAI_EMBEDDING_MODEL", "text-embedding-3-large")
-AZURE_CHAT_MODEL = os.getenv("AZURE_OPENAI_CHAT_MODEL", "gpt-4o-mini")
-AZURE_CHAT_API_VERSION = os.getenv("AZURE_OPENAI_CHAT_API_VERSION", "2024-12-01-preview")
-AZURE_EMBED_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-01")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
 
 CACHE_DIR = Path("cache")
 CACHE_DIR.mkdir(exist_ok=True)
 
 BATCH_SIZE = 3  # Parse 3 resumes per API call
+
+# Global embedding model instance (lazy loaded)
+_embedding_model = None
 
 
 # ==============================
@@ -68,13 +76,13 @@ def extract_text_from_pdf(pdf_path: Path) -> str:
     return "\n".join(text_parts)
 
 
-def call_azure_llm_for_batch(resume_texts: List[str], file_names: List[str]) -> dict:
-    """Send multiple resumes to Azure OpenAI in a single structured request."""
-    client = AzureOpenAI(
-        api_key=AZURE_API_KEY,
-        api_version=AZURE_CHAT_API_VERSION,
-        azure_endpoint=AZURE_ENDPOINT
-    )
+def call_groq_llm_for_batch(resume_texts: List[str], file_names: List[str]) -> dict:
+    """Send multiple resumes to Groq LLM in a single structured request."""
+    if not GROQ_API_KEY:
+        print("⚠️ GROQ_API_KEY not set")
+        return []
+    
+    client = Groq(api_key=GROQ_API_KEY)
 
     prompt = (
         "You are a professional resume parser. Extract structured details for each resume below.\n\n"
@@ -102,14 +110,13 @@ def call_azure_llm_for_batch(resume_texts: List[str], file_names: List[str]) -> 
         prompt += f"\n--- Resume {i+1}: {file_names[i]} ---\n{text[:12000]}\n"
 
     response = client.chat.completions.create(
-        model=AZURE_CHAT_MODEL,
+        model=GROQ_MODEL,
         messages=[
             {"role": "system", "content": "You are a JSON-only resume parser. Return only valid JSON with no markdown code blocks or explanations."},
             {"role": "user", "content": prompt}
         ],
         temperature=0,
         max_tokens=4000,
-        response_format={"type": "json_object"}  # Force JSON mode
     )
 
     raw = response.choices[0].message.content.strip()
@@ -123,33 +130,43 @@ def call_azure_llm_for_batch(resume_texts: List[str], file_names: List[str]) -> 
         data = json.loads(raw)
         return data.get("results", [])
     except json.JSONDecodeError as e:
-        print(f"⚠️ Azure OpenAI returned invalid JSON: {e}")
+        print(f"⚠️ Groq returned invalid JSON: {e}")
         print(f"Raw response (first 500 chars): {raw[:500]}")
         return []
 
 
-def compute_azure_embedding_batch(texts: List[str]) -> List[Optional[List[float]]]:
-    """Compute embeddings for a batch of resumes."""
-    if not (AZURE_API_KEY and AZURE_ENDPOINT):
-        print(f"⚠️ Missing Azure credentials: API_KEY={bool(AZURE_API_KEY)}, ENDPOINT={bool(AZURE_ENDPOINT)}")
-        return [None] * len(texts)
+# Global embedding model instance
+_embedding_model = None
 
-    try:
-        client = AzureOpenAI(
-            api_key=AZURE_API_KEY,
-            azure_endpoint=AZURE_ENDPOINT,
-            api_version=AZURE_EMBED_API_VERSION,
-        )
-    except Exception as e:
-        print(f"⚠️ Failed to create Azure OpenAI client: {e}")
+def _get_embedding_model():
+    """Lazy load the sentence transformer model."""
+    global _embedding_model
+    if _embedding_model is None:
+        try:
+            _embedding_model = SentenceTransformer(EMBEDDING_MODEL)
+            print(f"✓ Loaded embedding model: {EMBEDDING_MODEL}")
+        except Exception as e:
+            print(f"⚠️ Failed to load embedding model: {e}")
+            return None
+    return _embedding_model
+
+
+def compute_embedding_batch(texts: List[str]) -> List[Optional[List[float]]]:
+    """Compute embeddings for a batch of texts using HuggingFace sentence-transformers."""
+    model = _get_embedding_model()
+    if model is None:
         return [None] * len(texts)
 
     embeddings = []
     for i, text in enumerate(texts):
         try:
-            response = client.embeddings.create(model=AZURE_EMBED_MODEL, input=text[:8000])
-            vector = np.array(response.data[0].embedding, dtype=float)
-            vector /= np.linalg.norm(vector)
+            # Truncate text to reasonable length for embedding
+            truncated = text[:8000] if len(text) > 8000 else text
+            vector = model.encode(truncated, convert_to_numpy=True)
+            # Normalize the vector
+            norm = np.linalg.norm(vector)
+            if norm > 0:
+                vector = vector / norm
             embeddings.append(vector.tolist())
             print(f"  ✓ Generated embedding {i+1}/{len(texts)}")
         except Exception as e:
@@ -157,7 +174,6 @@ def compute_azure_embedding_batch(texts: List[str]) -> List[Optional[List[float]
             import traceback
             traceback.print_exc()
             embeddings.append(None)
-        time.sleep(0.5)  # be nice to API
     return embeddings
 
 
@@ -246,15 +262,15 @@ class ResumeParserLLM:
         return df
 
     def _process_batch(self, texts: List[str], files: List[str]) -> List[dict]:
-        print(f"🔍 Sending batch of {len(files)} resumes to Azure OpenAI...")
-        results = call_azure_llm_for_batch(texts, files)
+        print(f"🔍 Sending batch of {len(files)} resumes to Groq LLM...")
+        results = call_groq_llm_for_batch(texts, files)
         
         # If batch parsing failed and we have multiple resumes, try one-by-one
         if not results and len(files) > 1:
             print("⚠️ Batch parsing failed. Trying individual parsing...")
             results = []
             for text, fname in zip(texts, files):
-                single_result = call_azure_llm_for_batch([text], [fname])
+                single_result = call_groq_llm_for_batch([text], [fname])
                 if single_result:
                     results.extend(single_result)
                 else:
@@ -283,7 +299,7 @@ class ResumeParserLLM:
                 "summary": None
             } for fname in files]
         
-        embeddings = compute_azure_embedding_batch(texts) if self.compute_embeddings else [None] * len(texts)
+        embeddings = compute_embedding_batch(texts) if self.compute_embeddings else [None] * len(texts)
 
         batch_data = []
         for i, res in enumerate(results):

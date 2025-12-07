@@ -1,4 +1,4 @@
-"""Match job descriptions against parsed resumes using Azure OpenAI embeddings."""
+"""Match job descriptions against parsed resumes using HuggingFace embeddings."""
 from __future__ import annotations
 
 import os
@@ -11,10 +11,10 @@ from typing import Iterable, Optional, Any, Callable
 import numpy as np
 import pandas as pd
 
-try:  # Optional – allow import without Azure OpenAI installed.
-    from openai import AzureOpenAI
+try:  # Optional – allow import without sentence-transformers installed.
+    from sentence_transformers import SentenceTransformer
 except ImportError:  # pragma: no cover - runtime guard
-    AzureOpenAI = None  # type: ignore
+    SentenceTransformer = None  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -85,32 +85,34 @@ class MatchResult:
     metadata: dict
 
 
+# Default HuggingFace model for embeddings (free, runs locally)
+DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+
+
 class ResumeMatcher:
-    """Rank resumes from a DataFrame against a job description."""
+    """Rank resumes from a DataFrame against a job description using HuggingFace embeddings."""
 
     def __init__(
         self,
         *,
         embedding_model: Optional[str] = None,
+        client_factory: Optional[Callable[[], Any]] = None,
+        # Legacy params (ignored, kept for backward compatibility)
         azure_api_key: Optional[str] = None,
         azure_endpoint: Optional[str] = None,
         azure_api_version: Optional[str] = None,
-        client_factory: Optional[Callable[[], Any]] = None,
     ) -> None:
         resolved_model = (
             embedding_model
-            or os.getenv("AZURE_OPENAI_EMBEDDING_MODEL")
-            or "text-embedding-3-large"
+            or os.getenv("EMBEDDING_MODEL")
+            or DEFAULT_EMBEDDING_MODEL
         )
         self._embedding_model = resolved_model
-        self._azure_api_key = azure_api_key or os.getenv("AZURE_OPENAI_API_KEY") or os.getenv("OPEN_AI_API_KEY")
-        self._azure_endpoint = azure_endpoint or os.getenv("AZURE_OPENAI_ENDPOINT")
-        self._azure_api_version = azure_api_version or os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-01")
-        self._client: Optional[Any] = None
+        self._client: Optional[SentenceTransformer] = None
         self._client_factory = client_factory
-        if AzureOpenAI is None and client_factory is None:  # pragma: no cover - runtime guard
+        if SentenceTransformer is None and client_factory is None:  # pragma: no cover - runtime guard
             logger.warning(
-                "openai package not installed – matcher embeddings unavailable."
+                "sentence-transformers package not installed – matcher embeddings unavailable."
             )
 
     def rank(
@@ -167,40 +169,23 @@ class ResumeMatcher:
         if self._client_factory is not None:
             self._client = self._client_factory()
             return self._client
-        if AzureOpenAI is None:
+        if SentenceTransformer is None:
             raise RuntimeError(
-                "openai package is required for Azure OpenAI embeddings."
+                "sentence-transformers package is required for embeddings. Install with: pip install sentence-transformers"
             )
-        if not self._azure_api_key or not self._azure_endpoint:
-            raise RuntimeError(
-                "Azure OpenAI credentials missing. Set AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT."
-            )
-        self._client = AzureOpenAI(
-            api_key=self._azure_api_key,
-            api_version=self._azure_api_version,
-            azure_endpoint=self._azure_endpoint,
-        )
+        logger.info(f"Loading embedding model: {self._embedding_model}")
+        self._client = SentenceTransformer(self._embedding_model)
         return self._client
 
     def _embed_text(self, client: Any, text: str) -> np.ndarray:
-        response = client.embeddings.create(
-            input=text,
-            model=self._embedding_model,
-        )
-        if not response.data:
-            raise RuntimeError("Azure OpenAI returned no embedding data")
-        return _ensure_numpy_array(response.data[0].embedding)
+        embedding = client.encode(text, convert_to_numpy=True)
+        return _ensure_numpy_array(embedding)
 
     def _embed_batch(self, client: Any, texts: list[str]) -> list[np.ndarray]:
         if not texts:
             return []
-        response = client.embeddings.create(
-            input=texts,
-            model=self._embedding_model,
-        )
-        if not response.data:
-            return [np.zeros(1, dtype=np.float32) for _ in texts]
-        return [_ensure_numpy_array(item.embedding) for item in response.data]
+        embeddings = client.encode(texts, convert_to_numpy=True, show_progress_bar=False)
+        return [_ensure_numpy_array(emb) for emb in embeddings]
 
     @staticmethod
     def _maybe_get_cached_embeddings(df: pd.DataFrame) -> Optional[list[np.ndarray]]:
